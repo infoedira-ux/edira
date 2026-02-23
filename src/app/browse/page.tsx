@@ -1,0 +1,164 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
+import ListingCard from "@/components/listings/ListingCard";
+import { Listing, City, ListingType } from "@/types";
+
+const ALL_LISTINGS: Listing[] = [
+  { id: "l1", landlord_id: "u1", title: "Luxury 3BR Penthouse", city: "Nairobi", neighbourhood: "Westlands", type: "3 Bedroom", price: 95000, beds: 3, baths: 2, sqft: 210, amenities: ["wifi","parking","security","gym"], images: ["https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 120, inquiries: 8, created_at: "", updated_at: "", is_new: true, rating: 4.9, reviews: 14, landlord: { id: "u1", role: "landlord", full_name: "James K", phone: "0712345678", verified: true, trust_score: 4.9, total_reviews: 14, created_at: "" } },
+  { id: "l2", landlord_id: "u2", title: "Ocean Breeze 1BR Apartment", city: "Mombasa", neighbourhood: "Nyali", type: "1 Bedroom", price: 28000, beds: 1, baths: 1, sqft: 60, amenities: ["wifi","water","security"], images: ["https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 80, inquiries: 5, created_at: "", updated_at: "", is_new: true, rating: 4.7, reviews: 11, landlord: { id: "u2", role: "landlord", full_name: "Aisha M", phone: "0745678901", verified: true, trust_score: 4.7, total_reviews: 11, created_at: "" } },
+  { id: "l3", landlord_id: "u3", title: "Furnished Studio Bamburi", city: "Mombasa", neighbourhood: "Bamburi", type: "Bedsitter", price: 20000, beds: 1, baths: 1, sqft: 50, amenities: ["wifi","furnished","security"], images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 60, inquiries: 3, created_at: "", updated_at: "", is_new: true, rating: 4.6, reviews: 9, landlord: { id: "u3", role: "landlord", full_name: "Brian O", phone: "0757444555", verified: true, trust_score: 4.6, total_reviews: 9, created_at: "" } },
+  { id: "l4", landlord_id: "u4", title: "Modern 2BR, Kilimani", city: "Nairobi", neighbourhood: "Kilimani", type: "2 Bedroom", price: 55000, beds: 2, baths: 2, sqft: 95, amenities: ["wifi","parking","security","furnished"], images: ["https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 95, inquiries: 6, created_at: "", updated_at: "", is_new: false, rating: 4.8, reviews: 12, landlord: { id: "u4", role: "landlord", full_name: "Grace W", phone: "0723111222", verified: true, trust_score: 4.8, total_reviews: 12, created_at: "" } },
+  { id: "l5", landlord_id: "u5", title: "Cozy Bedsitter, Kisumu CBD", city: "Kisumu", neighbourhood: "Milimani", type: "Bedsitter", price: 10000, beds: 1, baths: 1, sqft: 30, amenities: ["water","security"], images: ["https://images.unsplash.com/photo-1493809842364-78817add7ffb?w=800&auto=format&fit=crop&q=80"], status: "active", verified: false, featured: false, views: 40, inquiries: 2, created_at: "", updated_at: "", is_new: false, rating: 4.2, reviews: 5, landlord: { id: "u5", role: "landlord", full_name: "Peter O", phone: "0711333444", verified: false, trust_score: 4.2, total_reviews: 5, created_at: "" } },
+  { id: "l6", landlord_id: "u6", title: "Spacious 4BR Family Home", city: "Nakuru", neighbourhood: "Milimani", type: "4+ Bedroom", price: 75000, beds: 4, baths: 3, sqft: 280, amenities: ["parking","garden","security","borehole"], images: ["https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 70, inquiries: 4, created_at: "", updated_at: "", is_new: false, rating: 4.5, reviews: 8, landlord: { id: "u6", role: "landlord", full_name: "Mary N", phone: "0799555666", verified: true, trust_score: 4.5, total_reviews: 8, created_at: "" } },
+  { id: "l7", landlord_id: "u7", title: "1BR with Pool, Diani", city: "Mombasa", neighbourhood: "Diani", type: "1 Bedroom", price: 35000, beds: 1, baths: 1, sqft: 70, amenities: ["wifi","pool","security","ocean-view"], images: ["https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 110, inquiries: 9, created_at: "", updated_at: "", is_new: true, rating: 4.9, reviews: 20, landlord: { id: "u7", role: "landlord", full_name: "Hassan A", phone: "0733777888", verified: true, trust_score: 4.9, total_reviews: 20, created_at: "" } },
+  { id: "l8", landlord_id: "u8", title: "Executive 2BR, Lavington", city: "Nairobi", neighbourhood: "Lavington", type: "2 Bedroom", price: 80000, beds: 2, baths: 2, sqft: 120, amenities: ["wifi","parking","gym","security","furnished"], images: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 135, inquiries: 11, created_at: "", updated_at: "", is_new: false, rating: 5.0, reviews: 18, landlord: { id: "u8", role: "landlord", full_name: "Susan L", phone: "0720999000", verified: true, trust_score: 5.0, total_reviews: 18, created_at: "" } },
+];
+
+const CITIES: City[] = ["Nairobi", "Mombasa", "Kisumu", "Nakuru"];
+const TYPES: ListingType[] = ["Bedsitter", "1 Bedroom", "2 Bedroom", "3 Bedroom", "4+ Bedroom"];
+const AMENITY_PILLS = ["wifi", "parking", "security", "borehole", "furnished", "gym", "pool", "water", "garden"];
+
+export default function BrowsePage() {
+  const [search, setSearch] = useState("");
+  const [city, setCity] = useState<City | "">("");
+  const [type, setType] = useState<ListingType | "">("");
+  const [maxPrice, setMaxPrice] = useState<number | "">(200000);
+  const [amenity, setAmenity] = useState("");
+  const [sort, setSort] = useState<"price_asc" | "price_desc" | "rating">("rating");
+  const [detail, setDetail] = useState<Listing | null>(null);
+
+  const filtered = useMemo(() => {
+    let list = [...ALL_LISTINGS];
+    if (search) list = list.filter(l => l.title.toLowerCase().includes(search.toLowerCase()) || l.neighbourhood?.toLowerCase().includes(search.toLowerCase()));
+    if (city) list = list.filter(l => l.city === city);
+    if (type) list = list.filter(l => l.type === type);
+    if (maxPrice) list = list.filter(l => l.price <= maxPrice);
+    if (amenity) list = list.filter(l => l.amenities.includes(amenity as any));
+    if (sort === "price_asc") list.sort((a, b) => a.price - b.price);
+    else if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
+    else list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    return list;
+  }, [search, city, type, maxPrice, amenity, sort]);
+
+  return (
+    <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
+      <Navbar />
+
+      {/* Header */}
+      <div style={{ padding: "48px 60px 32px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#D4A843", marginBottom: 8 }}>Browse</div>
+        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 700, color: "white", marginBottom: 24 }}>
+          Find your <span style={{ color: "#D4A843", fontStyle: "italic" }}>perfect home</span>
+        </h1>
+
+        {/* Search bar */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+          <input
+            value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or neighbourhood..."
+            style={{ flex: 1, minWidth: 220, padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none" }}
+          />
+          <select value={city} onChange={e => setCity(e.target.value as City | "")}
+            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: city ? "white" : "#8892AA", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+            <option value="">All Cities</option>
+            {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <select value={type} onChange={e => setType(e.target.value as ListingType | "")}
+            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: type ? "white" : "#8892AA", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+            <option value="">All Types</option>
+            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <select value={sort} onChange={e => setSort(e.target.value as any)}
+            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+            <option value="rating">Top Rated</option>
+            <option value="price_asc">Price: Low → High</option>
+            <option value="price_desc">Price: High → Low</option>
+          </select>
+        </div>
+
+        {/* Price + amenity pills */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 13, color: "#8892AA" }}>Max:</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#D4A843" }}>KSh {Number(maxPrice).toLocaleString()}</span>
+            <input type="range" min={5000} max={200000} step={5000} value={maxPrice || 200000}
+              onChange={e => setMaxPrice(Number(e.target.value))}
+              style={{ width: 140, accentColor: "#D4A843" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {AMENITY_PILLS.map(a => (
+              <button key={a} onClick={() => setAmenity(amenity === a ? "" : a)}
+                style={{ padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit',sans-serif", transition: "all 0.2s", background: amenity === a ? "rgba(212,168,67,0.15)" : "rgba(255,255,255,0.04)", color: amenity === a ? "#D4A843" : "#8892AA", border: amenity === a ? "1px solid rgba(212,168,67,0.4)" : "1px solid rgba(255,255,255,0.07)" }}>
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Results */}
+      <div style={{ padding: "32px 60px 72px" }}>
+        <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 24 }}>
+          <span style={{ color: "white", fontWeight: 600 }}>{filtered.length}</span> properties found
+          {city && <span> in <span style={{ color: "#D4A843" }}>{city}</span></span>}
+        </div>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "80px 0", color: "#8892AA" }}>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>🏚️</div>
+            <div style={{ fontSize: 18, fontWeight: 600, color: "white", marginBottom: 8 }}>No properties found</div>
+            <div style={{ fontSize: 14 }}>Try adjusting your filters</div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24 }}>
+            {filtered.map((l, i) => <ListingCard key={l.id} listing={l} onOpen={setDetail} delay={i * 0.05} />)}
+          </div>
+        )}
+      </div>
+
+      {/* Detail Modal */}
+      {detail && (
+        <div onClick={() => setDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 580, maxHeight: "90vh", overflowY: "auto", animation: "popIn 0.3s ease both" }}>
+            <img src={detail.images[0]} alt={detail.title} style={{ width: "100%", height: 260, objectFit: "cover", borderRadius: "20px 20px 0 0", display: "block" }} />
+            <div style={{ padding: "28px 32px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+                <div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#D4A843" }}>KSh {detail.price.toLocaleString()}<span style={{ fontSize: 14, color: "#8892AA", fontFamily: "'Outfit',sans-serif" }}>/mo</span></div>
+                  <div style={{ fontSize: 18, fontWeight: 600, color: "white" }}>{detail.title}</div>
+                  <div style={{ fontSize: 13, color: "#8892AA", marginTop: 4 }}>📍 {detail.neighbourhood}, {detail.city}</div>
+                </div>
+                <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18, fontFamily: "'Outfit',sans-serif" }}>✕</button>
+              </div>
+              <div style={{ display: "flex", gap: 20, padding: "16px 0", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 20, fontSize: 13, color: "#8892AA" }}>
+                <span>🛏 {detail.beds} Bed</span>
+                <span>🚿 {detail.baths} Bath</span>
+                {detail.sqft && <span>📐 {detail.sqft}m²</span>}
+                <span>🏠 {detail.type}</span>
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                {detail.amenities.map(a => (
+                  <span key={a} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, background: "rgba(212,168,67,0.08)", color: "#D4A843", border: "1px solid rgba(212,168,67,0.2)" }}>{a}</span>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <a href={`https://wa.me/254${detail.landlord?.phone?.replace(/^0/,"")}?text=Hi, I saw your listing on Edira: ${detail.title}. Is it still available?`} target="_blank" rel="noreferrer"
+                  style={{ flex: 1, background: "#25D366", color: "white", padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "none" }}>
+                  💬 WhatsApp Landlord
+                </a>
+                <a href={`tel:${detail.landlord?.phone}`}
+                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "white", padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.1)" }}>
+                  📞 Call
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Footer />
+    </main>
+  );
+}
