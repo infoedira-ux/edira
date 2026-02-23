@@ -1,12 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import ListingCard from "@/components/listings/ListingCard";
 import { Listing, City, ListingType } from "@/types";
 
-const ALL_LISTINGS: Listing[] = [
+const CITIES: City[] = ["Nairobi", "Mombasa", "Kisumu", "Nakuru"];
+const TYPES: ListingType[] = ["Bedsitter", "1 Bedroom", "2 Bedroom", "3 Bedroom", "4+ Bedroom"];
+const AMENITY_PILLS = ["wifi", "parking", "security", "borehole", "furnished", "gym", "pool", "water", "garden"];
+
+const FALLBACK_LISTINGS: Listing[] = [
   { id: "l1", landlord_id: "u1", title: "Luxury 3BR Penthouse", city: "Nairobi", neighbourhood: "Westlands", type: "3 Bedroom", price: 95000, beds: 3, baths: 2, sqft: 210, amenities: ["wifi","parking","security","gym"], images: ["https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 120, inquiries: 8, created_at: "", updated_at: "", is_new: true, rating: 4.9, reviews: 14, landlord: { id: "u1", role: "landlord", full_name: "James K", phone: "0712345678", verified: true, trust_score: 4.9, total_reviews: 14, created_at: "" } },
   { id: "l2", landlord_id: "u2", title: "Ocean Breeze 1BR Apartment", city: "Mombasa", neighbourhood: "Nyali", type: "1 Bedroom", price: 28000, beds: 1, baths: 1, sqft: 60, amenities: ["wifi","water","security"], images: ["https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 80, inquiries: 5, created_at: "", updated_at: "", is_new: true, rating: 4.7, reviews: 11, landlord: { id: "u2", role: "landlord", full_name: "Aisha M", phone: "0745678901", verified: true, trust_score: 4.7, total_reviews: 11, created_at: "" } },
   { id: "l3", landlord_id: "u3", title: "Furnished Studio Bamburi", city: "Mombasa", neighbourhood: "Bamburi", type: "Bedsitter", price: 20000, beds: 1, baths: 1, sqft: 50, amenities: ["wifi","furnished","security"], images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 60, inquiries: 3, created_at: "", updated_at: "", is_new: true, rating: 4.6, reviews: 9, landlord: { id: "u3", role: "landlord", full_name: "Brian O", phone: "0757444555", verified: true, trust_score: 4.6, total_reviews: 9, created_at: "" } },
@@ -17,21 +21,40 @@ const ALL_LISTINGS: Listing[] = [
   { id: "l8", landlord_id: "u8", title: "Executive 2BR, Lavington", city: "Nairobi", neighbourhood: "Lavington", type: "2 Bedroom", price: 80000, beds: 2, baths: 2, sqft: 120, amenities: ["wifi","parking","gym","security","furnished"], images: ["https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 135, inquiries: 11, created_at: "", updated_at: "", is_new: false, rating: 5.0, reviews: 18, landlord: { id: "u8", role: "landlord", full_name: "Susan L", phone: "0720999000", verified: true, trust_score: 5.0, total_reviews: 18, created_at: "" } },
 ];
 
-const CITIES: City[] = ["Nairobi", "Mombasa", "Kisumu", "Nakuru"];
-const TYPES: ListingType[] = ["Bedsitter", "1 Bedroom", "2 Bedroom", "3 Bedroom", "4+ Bedroom"];
-const AMENITY_PILLS = ["wifi", "parking", "security", "borehole", "furnished", "gym", "pool", "water", "garden"];
-
 export default function BrowsePage() {
+  const [allListings, setAllListings] = useState<Listing[]>(FALLBACK_LISTINGS);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [city, setCity] = useState<City | "">("");
   const [type, setType] = useState<ListingType | "">("");
-  const [maxPrice, setMaxPrice] = useState<number | "">(200000);
+  const [maxPrice, setMaxPrice] = useState<number>(200000);
   const [amenity, setAmenity] = useState("");
   const [sort, setSort] = useState<"price_asc" | "price_desc" | "rating">("rating");
   const [detail, setDetail] = useState<Listing | null>(null);
 
+  useEffect(() => {
+    const fetchListings = async () => {
+      try {
+        const { createClient } = await import("@/lib/supabase/client");
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("listings")
+          .select("*, landlord:profiles(*)") 
+          .eq("status", "active")
+          .order("created_at", { ascending: false });
+        if (!error && data && data.length > 0) {
+          setAllListings(data as Listing[]);
+        }
+      } catch {
+        // fallback listings already set
+      }
+      setLoading(false);
+    };
+    fetchListings();
+  }, []);
+
   const filtered = useMemo(() => {
-    let list = [...ALL_LISTINGS];
+    let list = [...allListings];
     if (search) list = list.filter(l => l.title.toLowerCase().includes(search.toLowerCase()) || l.neighbourhood?.toLowerCase().includes(search.toLowerCase()));
     if (city) list = list.filter(l => l.city === city);
     if (type) list = list.filter(l => l.type === type);
@@ -41,7 +64,7 @@ export default function BrowsePage() {
     else if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
     else list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     return list;
-  }, [search, city, type, maxPrice, amenity, sort]);
+  }, [allListings, search, city, type, maxPrice, amenity, sort]);
 
   return (
     <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
@@ -54,13 +77,9 @@ export default function BrowsePage() {
           Find your <span style={{ color: "#D4A843", fontStyle: "italic" }}>perfect home</span>
         </h1>
 
-        {/* Search bar */}
         <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-          <input
-            value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search by name or neighbourhood..."
-            style={{ flex: 1, minWidth: 220, padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none" }}
-          />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or neighbourhood..."
+            style={{ flex: 1, minWidth: 220, padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none" }} />
           <select value={city} onChange={e => setCity(e.target.value as City | "")}
             style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: city ? "white" : "#8892AA", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
             <option value="">All Cities</option>
@@ -79,12 +98,11 @@ export default function BrowsePage() {
           </select>
         </div>
 
-        {/* Price + amenity pills */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontSize: 13, color: "#8892AA" }}>Max:</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#D4A843" }}>KSh {Number(maxPrice).toLocaleString()}</span>
-            <input type="range" min={5000} max={200000} step={5000} value={maxPrice || 200000}
+            <span style={{ fontSize: 13, fontWeight: 600, color: "#D4A843" }}>KSh {maxPrice.toLocaleString()}</span>
+            <input type="range" min={5000} max={200000} step={5000} value={maxPrice}
               onChange={e => setMaxPrice(Number(e.target.value))}
               style={{ width: 140, accentColor: "#D4A843" }} />
           </div>
@@ -102,10 +120,20 @@ export default function BrowsePage() {
       {/* Results */}
       <div style={{ padding: "32px 60px 72px" }}>
         <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 24 }}>
-          <span style={{ color: "white", fontWeight: 600 }}>{filtered.length}</span> properties found
-          {city && <span> in <span style={{ color: "#D4A843" }}>{city}</span></span>}
+          {loading ? (
+            <span style={{ color: "#D4A843" }}>Loading listings...</span>
+          ) : (
+            <><span style={{ color: "white", fontWeight: 600 }}>{filtered.length}</span> properties found{city && <span> in <span style={{ color: "#D4A843" }}>{city}</span></span>}</>
+          )}
         </div>
-        {filtered.length === 0 ? (
+
+        {loading ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24 }}>
+            {[1,2,3,4,5,6].map(i => (
+              <div key={i} style={{ height: 380, borderRadius: 16, background: "#141829", border: "1px solid rgba(255,255,255,0.05)", animation: "pulse 1.5s ease infinite" }} />
+            ))}
+          </div>
+        ) : filtered.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 0", color: "#8892AA" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🏚️</div>
             <div style={{ fontSize: 18, fontWeight: 600, color: "white", marginBottom: 8 }}>No properties found</div>
@@ -122,7 +150,7 @@ export default function BrowsePage() {
       {detail && (
         <div onClick={() => setDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div onClick={e => e.stopPropagation()} style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 580, maxHeight: "90vh", overflowY: "auto", animation: "popIn 0.3s ease both" }}>
-            <img src={detail.images[0]} alt={detail.title} style={{ width: "100%", height: 260, objectFit: "cover", borderRadius: "20px 20px 0 0", display: "block" }} />
+            <img src={detail.images[0] || "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"} alt={detail.title} style={{ width: "100%", height: 260, objectFit: "cover", borderRadius: "20px 20px 0 0", display: "block" }} />
             <div style={{ padding: "28px 32px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                 <div>
@@ -132,6 +160,9 @@ export default function BrowsePage() {
                 </div>
                 <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18, fontFamily: "'Outfit',sans-serif" }}>✕</button>
               </div>
+              {detail.description && (
+                <p style={{ fontSize: 14, color: "#8892AA", lineHeight: 1.7, marginBottom: 20 }}>{detail.description}</p>
+              )}
               <div style={{ display: "flex", gap: 20, padding: "16px 0", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 20, fontSize: 13, color: "#8892AA" }}>
                 <span>🛏 {detail.beds} Bed</span>
                 <span>🚿 {detail.baths} Bath</span>
@@ -144,7 +175,7 @@ export default function BrowsePage() {
                 ))}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <a href={`https://wa.me/254${detail.landlord?.phone?.replace(/^0/,"")}?text=Hi, I saw your listing on Edira: ${detail.title}. Is it still available?`} target="_blank" rel="noreferrer"
+                <a href={`https://wa.me/254${detail.landlord?.phone?.replace(/^0/, "")}?text=Hi, I saw your listing on Edira: ${detail.title}. Is it still available?`} target="_blank" rel="noreferrer"
                   style={{ flex: 1, background: "#25D366", color: "white", padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "none" }}>
                   💬 WhatsApp Landlord
                 </a>
