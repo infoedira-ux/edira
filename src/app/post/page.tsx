@@ -23,6 +23,8 @@ const AMENITIES: { key: Amenity; label: string; icon: string }[] = [
 export default function PostPage() {
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     title: "", city: "" as City | "", neighbourhood: "", address: "",
     type: "" as ListingType | "", price: "", beds: "1", baths: "1",
@@ -38,6 +40,52 @@ export default function PostPage() {
     }));
   };
 
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be signed in to post a listing.");
+        setLoading(false);
+        return;
+      }
+
+      // Insert listing
+      const { error: insertError } = await supabase.from("listings").insert({
+        landlord_id: user.id,
+        title: form.title,
+        description: form.description,
+        city: form.city,
+        neighbourhood: form.neighbourhood,
+        address: form.address,
+        type: form.type,
+        price: Number(form.price),
+        beds: Number(form.beds),
+        baths: Number(form.baths),
+        sqft: form.sqft ? Number(form.sqft) : null,
+        amenities: form.amenities,
+        images: [],
+        status: "active",
+      });
+
+      if (insertError) {
+        setError(insertError.message);
+        setLoading(false);
+        return;
+      }
+
+      setSubmitted(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    }
+    setLoading(false);
+  };
+
   const inputStyle = {
     width: "100%", padding: "13px 16px", borderRadius: 10,
     background: "#1E2436", border: "1.5px solid rgba(255,255,255,0.08)",
@@ -45,7 +93,11 @@ export default function PostPage() {
     outline: "none", boxSizing: "border-box" as const,
   };
 
-  const labelStyle = { fontSize: 12, fontWeight: 600, color: "#8892AA", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 8, display: "block" };
+  const labelStyle = {
+    fontSize: 12, fontWeight: 600, color: "#8892AA",
+    textTransform: "uppercase" as const, letterSpacing: 1,
+    marginBottom: 8, display: "block",
+  };
 
   if (submitted) {
     return (
@@ -57,16 +109,15 @@ export default function PostPage() {
             Listing <span style={{ color: "#D4A843", fontStyle: "italic" }}>submitted!</span>
           </h2>
           <p style={{ fontSize: 15, color: "#8892AA", maxWidth: 420, lineHeight: 1.8, marginBottom: 36 }}>
-            Your property is under review. Once verified, it will appear live on Edira within 24 hours.
+            Your property is now live on Edira. Tenants can find and contact you directly.
           </p>
           <div style={{ display: "flex", gap: 12 }}>
             <a href="/browse" style={{ padding: "13px 28px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
               Browse Listings
             </a>
-            <button onClick={() => { setSubmitted(false); setStep(1); setForm({ title: "", city: "", neighbourhood: "", address: "", type: "", price: "", beds: "1", baths: "1", sqft: "", description: "", phone: "", amenities: [] }); }}
-              style={{ padding: "13px 28px", borderRadius: 10, background: "transparent", color: "#B4BECE", border: "1.5px solid rgba(255,255,255,0.1)", fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}>
-              Post Another
-            </button>
+            <a href="/dashboard" style={{ padding: "13px 28px", borderRadius: 10, background: "transparent", color: "#B4BECE", border: "1.5px solid rgba(255,255,255,0.1)", fontSize: 14, fontWeight: 500, textDecoration: "none" }}>
+              My Dashboard
+            </a>
           </div>
         </div>
         <Footer />
@@ -78,7 +129,6 @@ export default function PostPage() {
     <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
       <Navbar />
 
-      {/* Header */}
       <div style={{ padding: "52px 60px 36px", textAlign: "center" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#D4A843", marginBottom: 10 }}>Free Listing</div>
         <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 48, fontWeight: 700, color: "white", marginBottom: 12 }}>
@@ -107,9 +157,14 @@ export default function PostPage() {
         ))}
       </div>
 
-      {/* Form */}
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "0 24px 80px" }}>
         <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: "36px 40px" }}>
+
+          {error && (
+            <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 10, padding: "12px 16px", fontSize: 13, color: "#EF4444", marginBottom: 20 }}>
+              {error}
+            </div>
+          )}
 
           {/* Step 1 */}
           {step === 1 && (
@@ -218,7 +273,6 @@ export default function PostPage() {
                 <p style={{ fontSize: 12, color: "#8892AA", marginTop: 8 }}>Tenants will contact you directly on WhatsApp.</p>
               </div>
 
-              {/* Summary */}
               <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 12, padding: "20px 24px" }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#D4A843", marginBottom: 14, textTransform: "uppercase", letterSpacing: 1 }}>Listing Summary</div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, fontSize: 13 }}>
@@ -242,9 +296,9 @@ export default function PostPage() {
                 <button onClick={() => setStep(2)} style={{ flex: 1, padding: "13px", borderRadius: 10, background: "transparent", color: "#8892AA", border: "1.5px solid rgba(255,255,255,0.1)", fontSize: 14, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}>
                   ← Back
                 </button>
-                <button onClick={() => setSubmitted(true)} disabled={!form.phone}
-                  style={{ flex: 2, padding: "14px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif", opacity: !form.phone ? 0.5 : 1, transition: "opacity 0.2s" }}>
-                  🚀 Submit Listing
+                <button onClick={handleSubmit} disabled={!form.phone || loading}
+                  style={{ flex: 2, padding: "14px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif", opacity: (!form.phone || loading) ? 0.5 : 1, transition: "opacity 0.2s" }}>
+                  {loading ? "Submitting..." : "🚀 Submit Listing"}
                 </button>
               </div>
             </div>
