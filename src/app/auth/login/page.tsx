@@ -15,8 +15,19 @@ export default function LoginPage() {
     if (!form.email || !form.password) { setError("Please fill in all fields."); return; }
     setLoading(true);
     setError("");
-    // TODO: connect Supabase auth here
-    setTimeout(() => { setLoading(false); setError("Supabase not connected yet — coming soon!"); }, 1000);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      });
+      if (error) { setError(error.message); setLoading(false); return; }
+      window.location.href = "/dashboard";
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   const inputStyle = {
@@ -32,14 +43,12 @@ export default function LoginPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "85vh", padding: "0 24px" }}>
         <div style={{ width: "100%", maxWidth: 420 }}>
 
-          {/* Logo mark */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#D4A843,#A87E28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#0A0E1A", margin: "0 auto 16px" }}>E</div>
             <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 34, fontWeight: 700, color: "white", marginBottom: 6 }}>Welcome back</h1>
             <p style={{ fontSize: 14, color: "#8892AA" }}>Sign in to your Edira account</p>
           </div>
 
-          {/* Card */}
           <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: "36px 32px" }}>
 
             {error && (
@@ -68,20 +77,17 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* Divider */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "24px 0" }}>
               <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
               <span style={{ fontSize: 12, color: "#8892AA" }}>or continue with</span>
               <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.07)" }} />
             </div>
 
-            {/* WhatsApp OTP */}
             <button style={{ width: "100%", padding: "13px", borderRadius: 10, background: "rgba(37,211,102,0.08)", color: "#25D366", border: "1.5px solid rgba(37,211,102,0.2)", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit',sans-serif", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
               💬 Continue with WhatsApp OTP
             </button>
           </div>
 
-          {/* Footer link */}
           <p style={{ textAlign: "center", fontSize: 14, color: "#8892AA", marginTop: 24 }}>
             Don't have an account?{" "}
             <Link href="/auth/signup" style={{ color: "#D4A843", textDecoration: "none", fontWeight: 600 }}>Sign up free</Link>

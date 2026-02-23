@@ -15,7 +15,26 @@ export default function SignupPage() {
     if (!form.name || !form.email || !form.password) { setError("Please fill in all required fields."); return; }
     setLoading(true);
     setError("");
-    setTimeout(() => { setLoading(false); setError("Supabase not connected yet — coming soon!"); }, 1000);
+    try {
+      const { createClient } = await import("@/lib/supabase/client");
+      const supabase = createClient();
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: {
+          data: {
+            full_name: form.name,
+            phone: form.phone,
+            role: form.role,
+          }
+        }
+      });
+      if (error) { setError(error.message); setLoading(false); return; }
+      window.location.href = "/dashboard";
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
+    }
   };
 
   const inputStyle = {
@@ -31,7 +50,6 @@ export default function SignupPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "85vh", padding: "40px 24px" }}>
         <div style={{ width: "100%", maxWidth: 460 }}>
 
-          {/* Logo mark */}
           <div style={{ textAlign: "center", marginBottom: 36 }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: "linear-gradient(135deg,#D4A843,#A87E28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 700, color: "#0A0E1A", margin: "0 auto 16px" }}>E</div>
             <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 34, fontWeight: 700, color: "white", marginBottom: 6 }}>Create your account</h1>
@@ -46,7 +64,6 @@ export default function SignupPage() {
               </div>
             )}
 
-            {/* Role selector */}
             <div style={{ marginBottom: 24 }}>
               <label style={{ fontSize: 12, fontWeight: 600, color: "#8892AA", textTransform: "uppercase" as const, letterSpacing: 1, marginBottom: 10, display: "block" }}>I am a</label>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
