@@ -134,7 +134,8 @@ export default function ListingCard({ listing: l, onOpen, delay = 0 }: ListingCa
         <div style={{ display: "flex", gap: 8 }}>
           
             href={`https://wa.me/254${l.landlord?.phone?.replace(/^0/, "")}?text=Hi, I found your listing on Edira: ${l.title}. Is it still available?`}
-            target="_blank" rel="noreferrer"
+            target="_blank"
+            rel="noreferrer"
             onClick={e => e.stopPropagation()}
             style={{
               flex: 1, background: "#25D366", color: "white",
