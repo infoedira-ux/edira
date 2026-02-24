@@ -16,42 +16,70 @@
   --red: #EF4444;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 body {
   font-family: 'Outfit', sans-serif;
   background: var(--ink);
   color: white;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-.display {
-  font-family: 'Cormorant Garamond', serif;
-}
+.display { font-family: 'Cormorant Garamond', serif; }
 
-::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--ink2); }
 ::-webkit-scrollbar-thumb { background: var(--ink3); border-radius: 3px; }
 
+/* Animations */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
-
 @keyframes popIn {
   from { opacity: 0; transform: scale(0.93); }
   to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .animate-fade-up { animation: fadeUp 0.5s ease both; }
 .animate-fade-in { animation: fadeIn 0.3s ease both; }
 .animate-pop-in { animation: popIn 0.3s ease both; }
+
+/* Mobile-first responsive helpers */
+@media (max-width: 768px) {
+  .hero-grid { grid-template-columns: 1fr !important; }
+  .hero-cards { display: none !important; }
+  .features-grid { grid-template-columns: 1fr 1fr !important; }
+  .listings-grid { grid-template-columns: 1fr !important; }
+  .stats-row { gap: 20px !important; flex-wrap: wrap; }
+  .page-pad { padding-left: 16px !important; padding-right: 16px !important; }
+  .cities-grid { grid-template-columns: 1fr !important; }
+  .dash-stats { grid-template-columns: 1fr 1fr !important; }
+  .footer-inner { flex-direction: column !important; gap: 20px !important; text-align: center; }
+  .listing-row { flex-direction: column !important; align-items: flex-start !important; }
+  .listing-row-actions { width: 100% !important; justify-content: space-between; }
+}
+
+@media (max-width: 480px) {
+  .features-grid { grid-template-columns: 1fr !important; }
+  .dash-stats { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* Touch improvements */
+@media (hover: none) {
+  button, a { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Safe area for notched phones */
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
