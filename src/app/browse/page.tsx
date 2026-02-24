@@ -23,14 +23,15 @@ const FALLBACK_LISTINGS: Listing[] = [
 
 export default function BrowsePage() {
   const [allListings, setAllListings] = useState<Listing[]>(FALLBACK_LISTINGS);
-  const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
   const [search, setSearch] = useState("");
   const [city, setCity] = useState<City | "">("");
   const [type, setType] = useState<ListingType | "">("");
-  const [maxPrice, setMaxPrice] = useState<number>(200000);
+  const [maxPrice, setMaxPrice] = useState(200000);
   const [amenity, setAmenity] = useState("");
-  const [sort, setSort] = useState<"price_asc" | "price_desc" | "rating">("rating");
+  const [sort, setSort] = useState<"price_asc"|"price_desc"|"rating">("rating");
   const [detail, setDetail] = useState<Listing | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     const fetchListings = async () => {
@@ -39,16 +40,12 @@ export default function BrowsePage() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("listings")
-          .select("*, landlord:profiles(*)") 
+          .select("*, landlord:profiles(*)")
           .eq("status", "active")
           .order("created_at", { ascending: false });
-        if (!error && data && data.length > 0) {
-          setAllListings(data as Listing[]);
-        }
-      } catch {
-        // fallback listings already set
-      }
-      setLoading(false);
+        if (!error && data && data.length > 0) setAllListings(data as Listing[]);
+      } catch {}
+      setLoadingData(false);
     };
     fetchListings();
   }, []);
@@ -58,7 +55,7 @@ export default function BrowsePage() {
     if (search) list = list.filter(l => l.title.toLowerCase().includes(search.toLowerCase()) || l.neighbourhood?.toLowerCase().includes(search.toLowerCase()));
     if (city) list = list.filter(l => l.city === city);
     if (type) list = list.filter(l => l.type === type);
-    if (maxPrice) list = list.filter(l => l.price <= maxPrice);
+    list = list.filter(l => l.price <= maxPrice);
     if (amenity) list = list.filter(l => l.amenities.includes(amenity as any));
     if (sort === "price_asc") list.sort((a, b) => a.price - b.price);
     else if (sort === "price_desc") list.sort((a, b) => b.price - a.price);
@@ -66,81 +63,128 @@ export default function BrowsePage() {
     return list;
   }, [allListings, search, city, type, maxPrice, amenity, sort]);
 
+  const activeFilters = [city, type, amenity].filter(Boolean).length;
+
   return (
     <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
       <Navbar />
 
       {/* Header */}
-      <div style={{ padding: "48px 60px 32px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#D4A843", marginBottom: 8 }}>Browse</div>
-        <h1 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 44, fontWeight: 700, color: "white", marginBottom: 24 }}>
+      <div style={{ padding: "clamp(28px,6vw,48px) clamp(16px,5vw,60px) 24px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: "#D4A843", marginBottom: 6 }}>Browse</div>
+        <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(28px,5vw,44px)", fontWeight: 700, color: "white", marginBottom: 20 }}>
           Find your <span style={{ color: "#D4A843", fontStyle: "italic" }}>perfect home</span>
         </h1>
 
-        <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name or neighbourhood..."
-            style={{ flex: 1, minWidth: 220, padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none" }} />
-          <select value={city} onChange={e => setCity(e.target.value as City | "")}
-            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: city ? "white" : "#8892AA", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
-            <option value="">All Cities</option>
-            {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select value={type} onChange={e => setType(e.target.value as ListingType | "")}
-            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: type ? "white" : "#8892AA", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
-            <option value="">All Types</option>
-            {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={sort} onChange={e => setSort(e.target.value as any)}
-            style={{ padding: "12px 18px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
-            <option value="rating">Top Rated</option>
-            <option value="price_asc">Price: Low → High</option>
-            <option value="price_desc">Price: High → Low</option>
-          </select>
+        {/* Search + filter toggle row */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by name or neighbourhood..."
+            style={{ flex: 1, padding: "12px 16px", borderRadius: 10, background: "#141829", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif", outline: "none", minWidth: 0 }} />
+          <button onClick={() => setFiltersOpen(!filtersOpen)}
+            style={{ padding: "12px 16px", borderRadius: 10, background: filtersOpen || activeFilters > 0 ? "rgba(212,168,67,0.12)" : "#141829", border: `1.5px solid ${activeFilters > 0 ? "rgba(212,168,67,0.4)" : "rgba(255,255,255,0.08)"}`, color: activeFilters > 0 ? "#D4A843" : "#8892AA", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit',sans-serif", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+            ⚙ Filters {activeFilters > 0 && <span style={{ background: "#D4A843", color: "#0A0E1A", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700 }}>{activeFilters}</span>}
+          </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontSize: 13, color: "#8892AA" }}>Max:</span>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "#D4A843" }}>KSh {maxPrice.toLocaleString()}</span>
-            <input type="range" min={5000} max={200000} step={5000} value={maxPrice}
-              onChange={e => setMaxPrice(Number(e.target.value))}
-              style={{ width: 140, accentColor: "#D4A843" }} />
-          </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {AMENITY_PILLS.map(a => (
-              <button key={a} onClick={() => setAmenity(amenity === a ? "" : a)}
-                style={{ padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit',sans-serif", transition: "all 0.2s", background: amenity === a ? "rgba(212,168,67,0.15)" : "rgba(255,255,255,0.04)", color: amenity === a ? "#D4A843" : "#8892AA", border: amenity === a ? "1px solid rgba(212,168,67,0.4)" : "1px solid rgba(255,255,255,0.07)" }}>
-                {a}
+        {/* Expandable filters */}
+        {filtersOpen && (
+          <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "18px 16px", marginBottom: 14, animation: "fadeUp 0.2s ease both" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 10, marginBottom: 16 }}>
+              <select value={city} onChange={e => setCity(e.target.value as City | "")}
+                style={{ padding: "11px 14px", borderRadius: 9, background: "#1E2436", border: "1.5px solid rgba(255,255,255,0.08)", color: city ? "white" : "#8892AA", fontSize: 13, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+                <option value="">All Cities</option>
+                {CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={type} onChange={e => setType(e.target.value as ListingType | "")}
+                style={{ padding: "11px 14px", borderRadius: 9, background: "#1E2436", border: "1.5px solid rgba(255,255,255,0.08)", color: type ? "white" : "#8892AA", fontSize: 13, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+                <option value="">All Types</option>
+                {TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={sort} onChange={e => setSort(e.target.value as any)}
+                style={{ padding: "11px 14px", borderRadius: 9, background: "#1E2436", border: "1.5px solid rgba(255,255,255,0.08)", color: "white", fontSize: 13, fontFamily: "'Outfit',sans-serif", outline: "none", cursor: "pointer" }}>
+                <option value="rating">Top Rated</option>
+                <option value="price_asc">Price: Low → High</option>
+                <option value="price_desc">Price: High → Low</option>
+              </select>
+            </div>
+
+            {/* Price slider */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, color: "#8892AA" }}>Max Rent</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#D4A843" }}>KSh {maxPrice.toLocaleString()}</span>
+              </div>
+              <input type="range" min={5000} max={200000} step={5000} value={maxPrice}
+                onChange={e => setMaxPrice(Number(e.target.value))}
+                style={{ width: "100%", accentColor: "#D4A843" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "#8892AA", marginTop: 4 }}>
+                <span>KSh 5,000</span><span>KSh 200,000</span>
+              </div>
+            </div>
+
+            {/* Amenity pills */}
+            <div>
+              <div style={{ fontSize: 11, color: "#8892AA", marginBottom: 8, fontWeight: 600, textTransform: "uppercase", letterSpacing: 1 }}>Amenities</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+                {AMENITY_PILLS.map(a => (
+                  <button key={a} onClick={() => setAmenity(amenity === a ? "" : a)}
+                    style={{ padding: "6px 13px", borderRadius: 100, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "'Outfit',sans-serif", transition: "all 0.2s", background: amenity === a ? "rgba(212,168,67,0.15)" : "rgba(255,255,255,0.04)", color: amenity === a ? "#D4A843" : "#8892AA", border: amenity === a ? "1px solid rgba(212,168,67,0.4)" : "1px solid rgba(255,255,255,0.07)" }}>
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Clear filters */}
+            {activeFilters > 0 && (
+              <button onClick={() => { setCity(""); setType(""); setAmenity(""); setMaxPrice(200000); }}
+                style={{ marginTop: 14, padding: "8px 18px", borderRadius: 8, background: "transparent", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}>
+                ✕ Clear all filters
               </button>
-            ))}
+            )}
           </div>
+        )}
+
+        {/* City quick filter pills */}
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+          {CITIES.map(c => (
+            <button key={c} onClick={() => setCity(city === c ? "" : c)}
+              style={{ padding: "6px 14px", borderRadius: 100, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit',sans-serif", transition: "all 0.2s", background: city === c ? "rgba(212,168,67,0.15)" : "rgba(255,255,255,0.04)", color: city === c ? "#D4A843" : "#8892AA", border: city === c ? "1px solid rgba(212,168,67,0.4)" : "1px solid rgba(255,255,255,0.07)" }}>
+              {c}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Results */}
-      <div style={{ padding: "32px 60px 72px" }}>
-        <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 24 }}>
-          {loading ? (
+      <div style={{ padding: "24px clamp(16px,5vw,60px) 72px" }}>
+        <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 20 }}>
+          {loadingData ? (
             <span style={{ color: "#D4A843" }}>Loading listings...</span>
           ) : (
             <><span style={{ color: "white", fontWeight: 600 }}>{filtered.length}</span> properties found{city && <span> in <span style={{ color: "#D4A843" }}>{city}</span></span>}</>
           )}
         </div>
 
-        {loading ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24 }}>
-            {[1,2,3,4,5,6].map(i => (
-              <div key={i} style={{ height: 380, borderRadius: 16, background: "#141829", border: "1px solid rgba(255,255,255,0.05)", animation: "pulse 1.5s ease infinite" }} />
+        {loadingData ? (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
+            {[1,2,3,4].map(i => (
+              <div key={i} style={{ height: 360, borderRadius: 16, background: "#141829", animation: "pulse 1.5s ease infinite" }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div style={{ textAlign: "center", padding: "80px 0", color: "#8892AA" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🏚️</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "white", marginBottom: 8 }}>No properties found</div>
-            <div style={{ fontSize: 14 }}>Try adjusting your filters</div>
+          <div style={{ textAlign: "center", padding: "60px 0" }}>
+            <div style={{ fontSize: 44, marginBottom: 14 }}>🏚️</div>
+            <div style={{ fontSize: 17, fontWeight: 600, color: "white", marginBottom: 8 }}>No properties found</div>
+            <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 20 }}>Try adjusting your filters</div>
+            <button onClick={() => { setCity(""); setType(""); setAmenity(""); setMaxPrice(200000); setSearch(""); }}
+              style={{ padding: "10px 22px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}>
+              Clear Filters
+            </button>
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 20 }}>
             {filtered.map((l, i) => <ListingCard key={l.id} listing={l} onOpen={setDetail} delay={i * 0.05} />)}
           </div>
         )}
@@ -148,39 +192,40 @@ export default function BrowsePage() {
 
       {/* Detail Modal */}
       {detail && (
-        <div onClick={() => setDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, width: "100%", maxWidth: 580, maxHeight: "90vh", overflowY: "auto", animation: "popIn 0.3s ease both" }}>
-            <img src={detail.images[0] || "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"} alt={detail.title} style={{ width: "100%", height: 260, objectFit: "cover", borderRadius: "20px 20px 0 0", display: "block" }} />
-            <div style={{ padding: "28px 32px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+        <div onClick={() => setDetail(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.88)", zIndex: 200, display: "flex", alignItems: "flex-end", justifyContent: "center", padding: 0 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#141829", borderRadius: "20px 20px 0 0", width: "100%", maxWidth: 600, maxHeight: "92vh", overflowY: "auto", animation: "fadeUp 0.3s ease both" }}>
+            <div style={{ position: "sticky", top: 0, display: "flex", justifyContent: "center", padding: "10px 0 0", background: "#141829", zIndex: 1 }}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)" }} />
+            </div>
+            <img src={detail.images[0] || "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"} alt={detail.title} style={{ width: "100%", height: 220, objectFit: "cover", display: "block" }} />
+            <div style={{ padding: "20px 20px 36px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 14 }}>
                 <div>
-                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 28, fontWeight: 700, color: "#D4A843" }}>KSh {detail.price.toLocaleString()}<span style={{ fontSize: 14, color: "#8892AA", fontFamily: "'Outfit',sans-serif" }}>/mo</span></div>
-                  <div style={{ fontSize: 18, fontWeight: 600, color: "white" }}>{detail.title}</div>
-                  <div style={{ fontSize: 13, color: "#8892AA", marginTop: 4 }}>📍 {detail.neighbourhood}, {detail.city}</div>
+                  <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 26, fontWeight: 700, color: "#D4A843" }}>KSh {detail.price.toLocaleString()}<span style={{ fontSize: 13, color: "#8892AA", fontFamily: "'Outfit',sans-serif" }}>/mo</span></div>
+                  <div style={{ fontSize: 16, fontWeight: 600, color: "white" }}>{detail.title}</div>
+                  <div style={{ fontSize: 12, color: "#8892AA", marginTop: 3 }}>📍 {detail.neighbourhood}, {detail.city}</div>
                 </div>
-                <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "white", width: 36, height: 36, borderRadius: "50%", cursor: "pointer", fontSize: 18, fontFamily: "'Outfit',sans-serif" }}>✕</button>
+                <button onClick={() => setDetail(null)} style={{ background: "rgba(255,255,255,0.06)", border: "none", color: "white", width: 34, height: 34, borderRadius: "50%", cursor: "pointer", fontSize: 16, flexShrink: 0 }}>✕</button>
               </div>
-              {detail.description && (
-                <p style={{ fontSize: 14, color: "#8892AA", lineHeight: 1.7, marginBottom: 20 }}>{detail.description}</p>
-              )}
-              <div style={{ display: "flex", gap: 20, padding: "16px 0", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 20, fontSize: 13, color: "#8892AA" }}>
+              {detail.description && <p style={{ fontSize: 13, color: "#8892AA", lineHeight: 1.7, marginBottom: 16 }}>{detail.description}</p>}
+              <div style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: "1px solid rgba(255,255,255,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)", marginBottom: 16, fontSize: 12, color: "#8892AA", flexWrap: "wrap" }}>
                 <span>🛏 {detail.beds} Bed</span>
                 <span>🚿 {detail.baths} Bath</span>
                 {detail.sqft && <span>📐 {detail.sqft}m²</span>}
                 <span>🏠 {detail.type}</span>
               </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 20 }}>
                 {detail.amenities.map(a => (
-                  <span key={a} style={{ padding: "5px 14px", borderRadius: 100, fontSize: 12, background: "rgba(212,168,67,0.08)", color: "#D4A843", border: "1px solid rgba(212,168,67,0.2)" }}>{a}</span>
+                  <span key={a} style={{ padding: "4px 12px", borderRadius: 100, fontSize: 11, background: "rgba(212,168,67,0.08)", color: "#D4A843", border: "1px solid rgba(212,168,67,0.2)" }}>{a}</span>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 10 }}>
-                <a href={`https://wa.me/254${detail.landlord?.phone?.replace(/^0/, "")}?text=Hi, I saw your listing on Edira: ${detail.title}. Is it still available?`} target="_blank" rel="noreferrer"
-                  style={{ flex: 1, background: "#25D366", color: "white", padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "none" }}>
-                  💬 WhatsApp Landlord
+                <a href={`https://wa.me/254${detail.landlord?.phone?.replace(/^0/,"")}?text=Hi, I saw your listing on Edira: ${detail.title}. Is it still available?`} target="_blank" rel="noreferrer"
+                  style={{ flex: 1, background: "#25D366", color: "white", padding: "13px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, textDecoration: "none" }}>
+                  💬 WhatsApp
                 </a>
                 <a href={`tel:${detail.landlord?.phone}`}
-                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "white", padding: "12px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.1)" }}>
+                  style={{ flex: 1, background: "rgba(255,255,255,0.06)", color: "white", padding: "13px 0", borderRadius: 10, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.1)" }}>
                   📞 Call
                 </a>
               </div>
