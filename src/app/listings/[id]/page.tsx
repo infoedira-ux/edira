@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { Listing } from "@/types";
 
-const FALLBACK_LISTINGS: Listing[] = [
+const FALLBACK: Listing[] = [
   { id: "l1", landlord_id: "u1", title: "Luxury 3BR Penthouse", city: "Nairobi", neighbourhood: "Westlands", type: "3 Bedroom", price: 95000, beds: 3, baths: 2, sqft: 210, amenities: ["wifi","parking","security","gym"], images: ["https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: true, views: 120, inquiries: 8, created_at: "", updated_at: "", is_new: true, rating: 4.9, reviews: 14, landlord: { id: "u1", role: "landlord", full_name: "James K", phone: "0712345678", verified: true, trust_score: 4.9, total_reviews: 14, created_at: "" } },
   { id: "l2", landlord_id: "u2", title: "Ocean Breeze 1BR Apartment", city: "Mombasa", neighbourhood: "Nyali", type: "1 Bedroom", price: 28000, beds: 1, baths: 1, sqft: 60, amenities: ["wifi","water","security"], images: ["https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 80, inquiries: 5, created_at: "", updated_at: "", is_new: true, rating: 4.7, reviews: 11, landlord: { id: "u2", role: "landlord", full_name: "Aisha M", phone: "0745678901", verified: true, trust_score: 4.7, total_reviews: 11, created_at: "" } },
   { id: "l3", landlord_id: "u3", title: "Furnished Studio Bamburi", city: "Mombasa", neighbourhood: "Bamburi", type: "Bedsitter", price: 20000, beds: 1, baths: 1, sqft: 50, amenities: ["wifi","furnished","security"], images: ["https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&auto=format&fit=crop&q=80"], status: "active", verified: true, featured: false, views: 60, inquiries: 3, created_at: "", updated_at: "", is_new: true, rating: 4.6, reviews: 9, landlord: { id: "u3", role: "landlord", full_name: "Brian O", phone: "0757444555", verified: true, trust_score: 4.6, total_reviews: 9, created_at: "" } },
@@ -24,13 +24,55 @@ const AMENITY_ICONS: Record<string, string> = {
 };
 
 const Stars = ({ rating }: { rating: number }) => (
-  <span>
+  <span style={{ color: "#D4A843" }}>
     {"★".repeat(Math.floor(rating))}{"☆".repeat(5 - Math.floor(rating))}
   </span>
 );
 
+/* ---- Style constants ---- */
+const sectionTitle: React.CSSProperties = {
+  fontFamily: "'Cormorant Garamond',serif", fontSize: 22,
+  fontWeight: 700, color: "white", marginBottom: 16,
+};
+const specCard: React.CSSProperties = {
+  background: "#141829", border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 12, padding: "14px 16px",
+};
+const amenityCard: React.CSSProperties = {
+  display: "flex", alignItems: "center", gap: 10,
+  background: "#141829", border: "1px solid rgba(255,255,255,0.06)",
+  borderRadius: 10, padding: "11px 14px",
+  color: "#B4BECE", fontSize: 13, fontWeight: 500,
+};
+const sidebarCard: React.CSSProperties = {
+  background: "#141829", border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: 18, padding: "24px", marginBottom: 14,
+};
+const waBtn: React.CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "center",
+  gap: 8, marginTop: 0, padding: "14px", background: "#25D366",
+  color: "white", textAlign: "center", borderRadius: 11,
+  textDecoration: "none", fontWeight: 700, fontSize: 15,
+};
+const callBtn: React.CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "center",
+  gap: 8, padding: "13px", background: "rgba(255,255,255,0.05)",
+  color: "white", textAlign: "center", borderRadius: 11,
+  textDecoration: "none", fontSize: 14, fontWeight: 600,
+  border: "1.5px solid rgba(255,255,255,0.1)",
+};
+const arrowStyle = (side: "left" | "right"): React.CSSProperties => ({
+  position: "absolute", top: "50%", [side]: 12,
+  transform: "translateY(-50%)", width: 36, height: 36,
+  borderRadius: "50%", background: "rgba(0,0,0,0.6)",
+  color: "white", border: "none", fontSize: 18, cursor: "pointer",
+});
+
 export default function ListingPage() {
-  const { id } = useParams();
+  const params = useParams();
+  const id = typeof params?.id === "string" ? params.id
+    : Array.isArray(params?.id) ? params.id[0] : null;
+
   const [listing, setListing] = useState<Listing | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeImage, setActiveImage] = useState(0);
@@ -38,44 +80,37 @@ export default function ListingPage() {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    if (!id) { setLoading(false); return; }
     const fetchListing = async () => {
       try {
         const { createClient } = await import("@/lib/supabase/client");
         const supabase = createClient();
         const { data, error } = await supabase
-          .from("listings")
-          .select("*, landlord:profiles(*)")
-          .eq("id", id)
-          .single();
+          .from("listings").select("*, landlord:profiles(*)")
+          .eq("id", id).single();
         if (!error && data) {
           setListing(data as Listing);
-
-          // Increment views
-          await supabase.from("listings")
-            .update({ views: (data.views || 0) + 1 })
-            .eq("id", id);
-
+          await supabase.from("listings").update({ views: (data.views ?? 0) + 1 }).eq("id", id);
           setLoading(false);
           return;
         }
       } catch {}
-
-      // Fallback to sample data
-      const found = FALLBACK_LISTINGS.find(l => l.id === id);
-      setListing(found || null);
+      setListing(FALLBACK.find((l) => l.id === id) ?? null);
       setLoading(false);
     };
-    if (id) fetchListing();
+    fetchListing();
   }, [id]);
 
-  const handleShare = async () => {
+  const handleShare = () => {
+    if (!listing) return;
     const url = window.location.href;
-    if (navigator.share) {
-      await navigator.share({ title: listing?.title, text: `Check out this property on Edira: ${listing?.title}`, url });
+    if (navigator?.share) {
+      navigator.share({ title: listing.title, url }).catch(() => {});
     } else {
-      navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      navigator.clipboard.writeText(url).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }).catch(() => {});
     }
   };
 
@@ -83,11 +118,9 @@ export default function ListingPage() {
     return (
       <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
         <Navbar />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 44, marginBottom: 14 }}>⏳</div>
-            <div style={{ fontSize: 15, color: "#8892AA" }}>Loading property...</div>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", flexDirection: "column", gap: 16 }}>
+          <div style={{ fontSize: 44 }}>⏳</div>
+          <div style={{ fontSize: 15, color: "#8892AA" }}>Loading property...</div>
         </div>
       </main>
     );
@@ -97,30 +130,30 @@ export default function ListingPage() {
     return (
       <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
         <Navbar />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh" }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 44, marginBottom: 14 }}>🏚️</div>
-            <div style={{ fontSize: 18, fontWeight: 600, color: "white", marginBottom: 8 }}>Property not found</div>
-            <div style={{ fontSize: 13, color: "#8892AA", marginBottom: 24 }}>This listing may have been removed.</div>
-            <a href="/browse" style={{ padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>
-              Browse Listings
-            </a>
-          </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "70vh", flexDirection: "column", gap: 16, textAlign: "center", padding: "0 24px" }}>
+          <div style={{ fontSize: 44 }}>🏚️</div>
+          <div style={{ fontSize: 18, fontWeight: 600, color: "white" }}>Property not found</div>
+          <div style={{ fontSize: 13, color: "#8892AA" }}>This listing may have been removed.</div>
+          <a href="/browse" style={{ padding: "12px 28px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 14, fontWeight: 700, textDecoration: "none" }}>Browse Listings</a>
         </div>
       </main>
     );
   }
 
-  const images = listing.images?.length > 0
+  const images = (listing.images?.length ?? 0) > 0
     ? listing.images
     : ["https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&auto=format&fit=crop&q=80"];
+  const price = listing.price ?? 0;
+  const waPhone = listing.landlord?.phone?.replace(/^0/, "") ?? "";
+  const waLink = `https://wa.me/254${waPhone}?text=${encodeURIComponent(`Hi ${listing.landlord?.full_name ?? ""}, I saw your listing on Edira: "${listing.title}" in ${listing.neighbourhood}, ${listing.city} at KSh ${price.toLocaleString()}/mo. Is it still available?`)}`;
+  const callLink = `tel:${listing.landlord?.phone ?? ""}`;
 
   return (
     <main style={{ minHeight: "100vh", background: "#0A0E1A" }}>
       <Navbar />
 
       {/* Breadcrumb */}
-      <div style={{ padding: "16px clamp(16px,5vw,60px)", fontSize: 12, color: "#8892AA", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+      <div style={{ padding: "14px clamp(16px,5vw,60px)", fontSize: 12, color: "#8892AA", display: "flex", gap: 6, flexWrap: "wrap" }}>
         <a href="/" style={{ color: "#8892AA", textDecoration: "none" }}>Home</a>
         <span>›</span>
         <a href="/browse" style={{ color: "#8892AA", textDecoration: "none" }}>Browse</a>
@@ -133,42 +166,33 @@ export default function ListingPage() {
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 clamp(16px,5vw,60px) 80px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 32, alignItems: "start" }} className="listing-detail-grid">
 
-          {/* LEFT COLUMN */}
+          {/* LEFT */}
           <div>
             {/* Image gallery */}
-            <div style={{ borderRadius: 16, overflow: "hidden", marginBottom: 12, position: "relative" }}>
+            <div style={{ position: "relative", marginBottom: 10 }}>
               <img src={images[activeImage]} alt={listing.title}
-                style={{ width: "100%", height: "clamp(220px,45vw,460px)", objectFit: "cover", display: "block" }} />
+                style={{ width: "100%", height: "clamp(220px,45vw,460px)", objectFit: "cover", borderRadius: 16, display: "block" }} />
 
               {/* Badges */}
               <div style={{ position: "absolute", top: 14, left: 14, display: "flex", gap: 8 }}>
-                {listing.verified && (
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "4px 10px", borderRadius: 6, background: "rgba(212,168,67,0.9)", color: "#0A0E1A" }}>✓ Verified</span>
-                )}
-                {listing.is_new && (
-                  <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "4px 10px", borderRadius: 6, background: "rgba(34,197,94,0.9)", color: "white" }}>New</span>
-                )}
+                {listing.verified && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "4px 10px", borderRadius: 6, background: "rgba(212,168,67,0.9)", color: "#0A0E1A" }}>✓ Verified</span>}
+                {listing.is_new && <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", padding: "4px 10px", borderRadius: 6, background: "rgba(34,197,94,0.9)", color: "white" }}>New</span>}
               </div>
 
-              {/* Image counter */}
               {images.length > 1 && (
                 <div style={{ position: "absolute", bottom: 14, right: 14, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)", borderRadius: 8, padding: "5px 12px", fontSize: 12, color: "white", fontWeight: 600 }}>
                   {activeImage + 1} / {images.length}
                 </div>
               )}
-
-              {/* Nav arrows */}
               {images.length > 1 && (
                 <>
-                  <button onClick={() => setActiveImage(i => Math.max(0, i - 1))} disabled={activeImage === 0}
-                    style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "white", fontSize: 16, cursor: "pointer", opacity: activeImage === 0 ? 0.3 : 1 }}>‹</button>
-                  <button onClick={() => setActiveImage(i => Math.min(images.length - 1, i + 1))} disabled={activeImage === images.length - 1}
-                    style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 36, height: 36, borderRadius: "50%", background: "rgba(0,0,0,0.6)", border: "none", color: "white", fontSize: 16, cursor: "pointer", opacity: activeImage === images.length - 1 ? 0.3 : 1 }}>›</button>
+                  <button onClick={() => setActiveImage((i) => Math.max(0, i - 1))} disabled={activeImage === 0} style={{ ...arrowStyle("left"), opacity: activeImage === 0 ? 0.3 : 1 }}>‹</button>
+                  <button onClick={() => setActiveImage((i) => Math.min(images.length - 1, i + 1))} disabled={activeImage === images.length - 1} style={{ ...arrowStyle("right"), opacity: activeImage === images.length - 1 ? 0.3 : 1 }}>›</button>
                 </>
               )}
             </div>
 
-            {/* Thumbnail strip */}
+            {/* Thumbnails */}
             {images.length > 1 && (
               <div style={{ display: "flex", gap: 8, marginBottom: 24, overflowX: "auto", paddingBottom: 4 }}>
                 {images.map((img, i) => (
@@ -180,17 +204,17 @@ export default function ListingPage() {
 
             {/* Title + price */}
             <div style={{ marginBottom: 24 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
                 <h1 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(24px,4vw,36px)", fontWeight: 700, color: "white", lineHeight: 1.2 }}>{listing.title}</h1>
                 <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: "clamp(22px,3vw,32px)", fontWeight: 700, color: "#D4A843", whiteSpace: "nowrap" }}>
-                  KSh {listing.price.toLocaleString()}<span style={{ fontSize: 13, color: "#8892AA", fontFamily: "'Outfit',sans-serif" }}>/mo</span>
+                  KSh {price.toLocaleString()}<span style={{ fontSize: 13, color: "#8892AA", fontFamily: "'Outfit',sans-serif" }}>/mo</span>
                 </div>
               </div>
-              <div style={{ fontSize: 14, color: "#8892AA", marginBottom: 10 }}>📍 {listing.neighbourhood}, {listing.city}</div>
-              {(listing.rating || 0) > 0 && (
+              <div style={{ fontSize: 14, color: "#8892AA", marginBottom: 8 }}>📍 {listing.neighbourhood}, {listing.city}</div>
+              {(listing.rating ?? 0) > 0 && (
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ color: "#D4A843", fontSize: 14 }}><Stars rating={listing.rating || 0} /></span>
-                  <span style={{ fontSize: 13, color: "#8892AA" }}>{listing.rating} · {listing.reviews} review{listing.reviews !== 1 ? "s" : ""}</span>
+                  <span style={{ fontSize: 14 }}><Stars rating={listing.rating ?? 0} /></span>
+                  <span style={{ fontSize: 13, color: "#8892AA" }}>{listing.rating} · {listing.reviews ?? 0} review{listing.reviews !== 1 ? "s" : ""}</span>
                 </div>
               )}
             </div>
@@ -202,8 +226,8 @@ export default function ListingPage() {
                 { icon: "🚿", label: "Bathrooms", value: `${listing.baths} Bath${listing.baths > 1 ? "s" : ""}` },
                 { icon: "🏠", label: "Type", value: listing.type },
                 ...(listing.sqft ? [{ icon: "📐", label: "Size", value: `${listing.sqft} m²` }] : []),
-              ].map(spec => (
-                <div key={spec.label} style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, padding: "14px 16px" }}>
+              ].map((spec) => (
+                <div key={spec.label} style={specCard}>
                   <div style={{ fontSize: 20, marginBottom: 6 }}>{spec.icon}</div>
                   <div style={{ fontSize: 11, color: "#8892AA", textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>{spec.label}</div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: "white" }}>{spec.value}</div>
@@ -214,20 +238,20 @@ export default function ListingPage() {
             {/* Description */}
             {listing.description && (
               <div style={{ marginBottom: 28 }}>
-                <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "white", marginBottom: 12 }}>About this property</h2>
+                <h2 style={sectionTitle}>About this property</h2>
                 <p style={{ fontSize: 14, color: "#8892AA", lineHeight: 1.85 }}>{listing.description}</p>
               </div>
             )}
 
             {/* Amenities */}
-            {listing.amenities?.length > 0 && (
+            {(listing.amenities?.length ?? 0) > 0 && (
               <div style={{ marginBottom: 28 }}>
-                <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "white", marginBottom: 16 }}>Amenities</h2>
+                <h2 style={sectionTitle}>Amenities</h2>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 10 }}>
-                  {listing.amenities.map(a => (
-                    <div key={a} style={{ display: "flex", alignItems: "center", gap: 10, background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 10, padding: "11px 14px" }}>
-                      <span style={{ fontSize: 18 }}>{AMENITY_ICONS[a] || "✓"}</span>
-                      <span style={{ fontSize: 13, color: "#B4BECE", fontWeight: 500, textTransform: "capitalize" }}>{a.replace("-", " ")}</span>
+                  {listing.amenities.map((a) => (
+                    <div key={a} style={amenityCard}>
+                      <span style={{ fontSize: 18 }}>{AMENITY_ICONS[a] ?? "✓"}</span>
+                      <span style={{ textTransform: "capitalize" }}>{a.replace("-", " ")}</span>
                     </div>
                   ))}
                 </div>
@@ -236,73 +260,60 @@ export default function ListingPage() {
 
             {/* Location */}
             <div style={{ marginBottom: 28 }}>
-              <h2 style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "white", marginBottom: 16 }}>Location</h2>
-              <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "20px", display: "flex", alignItems: "center", gap: 16 }}>
+              <h2 style={sectionTitle}>Location</h2>
+              <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, padding: "20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 36 }}>📍</div>
-                <div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: "white", marginBottom: 4 }}>{listing.neighbourhood}</div>
                   <div style={{ fontSize: 13, color: "#8892AA" }}>{listing.city}, Kenya</div>
                 </div>
                 <a href={`https://www.google.com/maps/search/${encodeURIComponent(`${listing.neighbourhood} ${listing.city} Kenya`)}`}
                   target="_blank" rel="noreferrer"
-                  style={{ marginLeft: "auto", padding: "9px 18px", borderRadius: 9, background: "rgba(212,168,67,0.1)", color: "#D4A843", border: "1px solid rgba(212,168,67,0.25)", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                  style={{ padding: "9px 18px", borderRadius: 9, background: "rgba(212,168,67,0.1)", color: "#D4A843", border: "1px solid rgba(212,168,67,0.25)", fontSize: 13, fontWeight: 600, textDecoration: "none", whiteSpace: "nowrap" }}>
                   View on Maps →
                 </a>
               </div>
             </div>
           </div>
 
-          {/* RIGHT COLUMN — sticky contact card */}
+          {/* RIGHT — sticky */}
           <div style={{ position: "sticky", top: 76 }}>
-            <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: "24px", marginBottom: 14 }}>
+            <div style={sidebarCard}>
 
               {/* Price */}
               <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 32, fontWeight: 700, color: "#D4A843" }}>
-                  KSh {listing.price.toLocaleString()}
-                </div>
+                <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 32, fontWeight: 700, color: "#D4A843" }}>KSh {price.toLocaleString()}</div>
                 <div style={{ fontSize: 13, color: "#8892AA" }}>per month</div>
               </div>
 
               {/* Landlord */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, paddingBottom: 20, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#D4A843,#A87E28)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#0A0E1A", flexShrink: 0 }}>
-                  {(listing.landlord?.full_name || "L")[0].toUpperCase()}
+                  {(listing.landlord?.full_name ?? "L")[0].toUpperCase()}
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "white" }}>{listing.landlord?.full_name || "Landlord"}</div>
-                  <div style={{ fontSize: 12, color: "#8892AA" }}>
-                    {listing.landlord?.verified ? "✓ Verified Landlord" : "Landlord"}
-                  </div>
-                  {(listing.landlord?.trust_score || 0) > 0 && (
-                    <div style={{ fontSize: 12, color: "#D4A843", marginTop: 2 }}>
-                      ★ {listing.landlord?.trust_score} · {listing.landlord?.total_reviews} reviews
-                    </div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "white" }}>{listing.landlord?.full_name ?? "Landlord"}</div>
+                  <div style={{ fontSize: 12, color: "#8892AA" }}>{listing.landlord?.verified ? "✓ Verified Landlord" : "Landlord"}</div>
+                  {(listing.landlord?.trust_score ?? 0) > 0 && (
+                    <div style={{ fontSize: 12, color: "#D4A843", marginTop: 2 }}>★ {listing.landlord?.trust_score} · {listing.landlord?.total_reviews} reviews</div>
                   )}
                 </div>
               </div>
 
-              {/* CTA buttons */}
+              {/* CTA */}
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <a href={`https://wa.me/254${listing.landlord?.phone?.replace(/^0/, "")}?text=Hi ${listing.landlord?.full_name}, I saw your listing on Edira: "${listing.title}" (${listing.neighbourhood}, ${listing.city}) at KSh ${listing.price.toLocaleString()}/mo. Is it still available?`}
-                  target="_blank" rel="noreferrer"
-                  style={{ background: "#25D366", color: "white", padding: "14px", borderRadius: 11, fontSize: 15, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none" }}>
-                  💬 WhatsApp Landlord
-                </a>
-                <a href={`tel:${listing.landlord?.phone}`}
-                  style={{ background: "rgba(255,255,255,0.05)", color: "white", padding: "13px", borderRadius: 11, fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, textDecoration: "none", border: "1.5px solid rgba(255,255,255,0.1)" }}>
-                  📞 Call {listing.landlord?.phone}
-                </a>
+                <a href={waLink} target="_blank" rel="noreferrer" style={waBtn}>💬 WhatsApp Landlord</a>
+                <a href={callLink} style={callBtn}>📞 Call {listing.landlord?.phone ?? ""}</a>
               </div>
 
-              {/* Safety notice */}
+              {/* Safety tip */}
               <div style={{ marginTop: 16, padding: "12px 14px", background: "rgba(212,168,67,0.06)", border: "1px solid rgba(212,168,67,0.15)", borderRadius: 10, fontSize: 12, color: "#8892AA", lineHeight: 1.6 }}>
-                🛡️ <strong style={{ color: "#D4A843" }}>Safety tip:</strong> Always visit the property before paying any deposit. Never send money without viewing.
+                🛡️ <strong style={{ color: "#D4A843" }}>Safety tip:</strong> Always visit before paying any deposit.
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div style={{ display: "flex", gap: 10 }}>
+            {/* Save + Share */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
               <button onClick={() => setSaved(!saved)}
                 style={{ flex: 1, padding: "12px", borderRadius: 11, background: saved ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.04)", color: saved ? "#EF4444" : "#8892AA", border: `1.5px solid ${saved ? "rgba(239,68,68,0.3)" : "rgba(255,255,255,0.1)"}`, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "'Outfit',sans-serif", transition: "all 0.2s" }}>
                 {saved ? "❤️ Saved" : "🤍 Save"}
@@ -314,11 +325,8 @@ export default function ListingPage() {
             </div>
 
             {/* Stats */}
-            <div style={{ display: "flex", gap: 0, marginTop: 14, background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
-              {[
-                { label: "Views", value: (listing.views || 0) + 1 },
-                { label: "Inquiries", value: listing.inquiries || 0 },
-              ].map((s, i) => (
+            <div style={{ display: "flex", background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 12, overflow: "hidden" }}>
+              {[{ label: "Views", value: (listing.views ?? 0) + 1 }, { label: "Inquiries", value: listing.inquiries ?? 0 }].map((s, i) => (
                 <div key={s.label} style={{ flex: 1, padding: "14px", textAlign: "center", borderLeft: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
                   <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 22, fontWeight: 700, color: "white" }}>{s.value}</div>
                   <div style={{ fontSize: 11, color: "#8892AA", textTransform: "uppercase", letterSpacing: 1 }}>{s.label}</div>
@@ -335,14 +343,16 @@ export default function ListingPage() {
           </h2>
           <p style={{ fontSize: 13, color: "#8892AA", marginBottom: 24 }}>Other properties you might like</p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))", gap: 18 }}>
-            {FALLBACK_LISTINGS.filter(l => l.city === listing.city && l.id !== listing.id).slice(0, 3).map(l => (
+            {FALLBACK.filter((l) => l.city === listing.city && l.id !== listing.id).slice(0, 3).map((l) => (
               <a key={l.id} href={`/listings/${l.id}`} style={{ textDecoration: "none" }}>
-                <div style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden", transition: "transform 0.2s" }}
-                  onMouseEnter={e => (e.currentTarget.style.transform = "translateY(-4px)")}
-                  onMouseLeave={e => (e.currentTarget.style.transform = "translateY(0)")}>
+                <div
+                  style={{ background: "#141829", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 14, overflow: "hidden", transition: "transform 0.2s" }}
+                  onMouseEnter={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = "translateY(-4px)"; }}
+                  onMouseLeave={(e: React.MouseEvent<HTMLDivElement>) => { e.currentTarget.style.transform = "translateY(0)"; }}
+                >
                   <img src={l.images[0]} alt={l.title} style={{ width: "100%", height: 160, objectFit: "cover", display: "block" }} />
                   <div style={{ padding: "14px" }}>
-                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "#D4A843" }}>KSh {l.price.toLocaleString()}</div>
+                    <div style={{ fontFamily: "'Cormorant Garamond',serif", fontSize: 20, fontWeight: 700, color: "#D4A843" }}>KSh {(l.price ?? 0).toLocaleString()}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "white", marginBottom: 3 }}>{l.title}</div>
                     <div style={{ fontSize: 12, color: "#8892AA" }}>📍 {l.neighbourhood}</div>
                   </div>
@@ -357,9 +367,7 @@ export default function ListingPage() {
 
       <style>{`
         @media (max-width: 768px) {
-          .listing-detail-grid {
-            grid-template-columns: 1fr !important;
-          }
+          .listing-detail-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </main>
