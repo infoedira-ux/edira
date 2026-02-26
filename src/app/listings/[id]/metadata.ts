@@ -1,9 +1,9 @@
 import { Metadata } from "next";
+import { createClient } from "@/lib/supabase/server";
 
 export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
   try {
-    const { createClient } = await import("@/lib/supabase/server");
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data } = await supabase
       .from("listings")
       .select("title, city, neighbourhood, type, price, images")
