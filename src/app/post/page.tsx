@@ -1,5 +1,6 @@
 "use client";
-
+import dynamic from "next/dynamic";
+const MapPicker = dynamic(() => import("@/components/map/MapPicker"), { ssr: false });
 import { useState, useRef } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -37,6 +38,7 @@ export default function PostPage() {
   const [uploading, setUploading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [images, setImages] = useState<{ file: File; preview: string; url?: string }[]>([]);
+  const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
@@ -63,10 +65,7 @@ export default function PostPage() {
       setErrors(er => ({ ...er, images: "Maximum 8 photos allowed" }));
       return;
     }
-    const newImages = files.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
+    const newImages = files.map(file => ({ file, preview: URL.createObjectURL(file) }));
     setImages(prev => [...prev, ...newImages]);
     setErrors(er => ({ ...er, images: "" }));
   };
@@ -124,7 +123,6 @@ export default function PostPage() {
       const imageUrls = await uploadImages(user.id);
       setUploading(false);
 
-      // Update phone in profile
       await supabase.from("profiles").update({ phone: form.phone }).eq("id", user.id);
 
       const { error } = await supabase.from("listings").insert({
@@ -141,24 +139,24 @@ export default function PostPage() {
         amenities: form.amenities,
         images: imageUrls,
         status: "active",
+        latitude: coords.lat,
+        longitude: coords.lng,
       });
 
       if (error) { setErrors({ submit: error.message }); setLoading(false); return; }
       setSubmitted(true);
-    } catch (err) {
+    } catch {
       setErrors({ submit: "Something went wrong. Please try again." });
     }
     setLoading(false);
   };
 
-  // Styles
   const input = (hasError: boolean) => ({
     width: "100%", padding: "13px 16px", borderRadius: 10,
     background: "#1E2436",
     border: `1.5px solid ${hasError ? "#EF4444" : "rgba(255,255,255,0.08)"}`,
     color: "white", fontSize: 14, fontFamily: "'Outfit',sans-serif",
-    outline: "none", boxSizing: "border-box" as const,
-    transition: "border-color 0.2s",
+    outline: "none", boxSizing: "border-box" as const, transition: "border-color 0.2s",
   });
 
   const label = {
@@ -216,9 +214,6 @@ export default function PostPage() {
               background: step >= s ? "linear-gradient(135deg,#D4A843,#A87E28)" : "rgba(255,255,255,0.06)",
               color: step >= s ? "#0A0E1A" : "#8892AA", transition: "all 0.3s",
             }}>{step > s ? "✓" : s}</div>
-            <span style={{ fontSize: 11, color: step >= s ? "#D4A843" : "#8892AA", fontWeight: step === s ? 600 : 400, display: "none" }}>
-              {s === 1 ? "Details" : s === 2 ? "Amenities" : "Photos & Contact"}
-            </span>
             {s < 3 && <div style={{ width: 32, height: 1, background: step > s ? "#D4A843" : "rgba(255,255,255,0.1)" }} />}
           </div>
         ))}
@@ -322,6 +317,25 @@ export default function PostPage() {
                 </div>
               </div>
 
+              {/* Map Picker */}
+              <div>
+                <label style={label}>Pin Property Location <span style={{ color: "#8892AA", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(optional)</span></label>
+                <p style={{ fontSize: 12, color: "#8892AA", marginBottom: 8, marginTop: 0 }}>
+                  Click the map to drop a pin at your exact property location. Drag to adjust.
+                </p>
+                <MapPicker
+                  latitude={coords.lat}
+                  longitude={coords.lng}
+                  city={form.city || undefined}
+                  onChange={(lat, lng) => setCoords({ lat, lng })}
+                />
+                {coords.lat && coords.lng && (
+                  <div style={{ fontSize: 11, color: "#22C55E", marginTop: 6 }}>
+                    ✓ Location pinned: {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                  </div>
+                )}
+              </div>
+
               <button onClick={() => { if (validateStep1()) setStep(2); }}
                 style={{ padding: "14px", borderRadius: 10, background: "linear-gradient(135deg,#D4A843,#A87E28)", color: "#0A0E1A", fontSize: 15, fontWeight: 700, border: "none", cursor: "pointer", fontFamily: "'Outfit',sans-serif" }}>
                 Next: Amenities →
@@ -370,8 +384,6 @@ export default function PostPage() {
               {/* Photo upload */}
               <div>
                 <label style={label}>Property Photos * <span style={{ color: "#8892AA", textTransform: "none", letterSpacing: 0, fontWeight: 400 }}>(up to 8)</span></label>
-
-                {/* Upload zone */}
                 <div onClick={() => fileRef.current?.click()}
                   style={{ border: `2px dashed ${errors.images ? "#EF4444" : "rgba(212,168,67,0.3)"}`, borderRadius: 14, padding: "28px 20px", textAlign: "center", cursor: "pointer", background: "rgba(212,168,67,0.03)", transition: "all 0.2s", marginBottom: 12 }}
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(212,168,67,0.06)")}
@@ -383,7 +395,6 @@ export default function PostPage() {
                 <input ref={fileRef} type="file" accept="image/*" multiple onChange={handleImagePick} style={{ display: "none" }} />
                 {errorMsg(errors.images)}
 
-                {/* Image previews */}
                 {images.length > 0 && (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginTop: 12 }}>
                     {images.map((img, i) => (
@@ -393,7 +404,7 @@ export default function PostPage() {
                           <div style={{ position: "absolute", top: 6, left: 6, fontSize: 9, fontWeight: 700, background: "#D4A843", color: "#0A0E1A", padding: "2px 7px", borderRadius: 4, letterSpacing: 1, textTransform: "uppercase" }}>Cover</div>
                         )}
                         <button onClick={() => removeImage(i)}
-                          style={{ position: "absolute", top: 5, right: 5, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,0.7)", border: "none", color: "white", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'Outfit',sans-serif" }}>
+                          style={{ position: "absolute", top: 5, right: 5, width: 24, height: 24, borderRadius: "50%", background: "rgba(0,0,0,0.7)", border: "none", color: "white", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           ✕
                         </button>
                       </div>
@@ -417,8 +428,7 @@ export default function PostPage() {
                     const val = e.target.value.replace(/[^\d+]/g, "").slice(0, 13);
                     update("phone", val);
                   }}
-                    placeholder="0712345678"
-                    inputMode="tel"
+                    placeholder="0712345678" inputMode="tel"
                     style={{ ...input(!!errors.phone), paddingLeft: 42 }} />
                 </div>
                 {errorMsg(errors.phone)}
@@ -440,6 +450,7 @@ export default function PostPage() {
                     ["Beds/Baths", `${form.beds} bed · ${form.baths} bath`],
                     ["Photos", `${images.length} uploaded`],
                     ["Amenities", `${form.amenities.length} selected`],
+                    ["Location", coords.lat ? "📍 Pinned" : "Not pinned"],
                   ].map(([k, v]) => (
                     <div key={k}>
                       <div style={{ color: "#8892AA", fontSize: 11, marginBottom: 2 }}>{k}</div>
